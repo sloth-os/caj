@@ -38,6 +38,9 @@ cajpdf/ttfsub.py     TrueType helpers: sfnt directory, cmap, name, subsetting
 cajpdf/_ttfsub_impl.py  the subsetter itself
 cajpdf/_pdf.py       PDF 1.7 writer: pages, images, Type0/CIDFontType2 fonts
 cajpdf/_img.py       page bitmap -> image XObject (flate/PNG-predictor/DCT/bilevel)
+tests/e2e_test.py    stdlib-only end-to-end test (convert + re-parse each PDF)
+vendor/              vendored CNKI runtime RPM (see vendor/README.md)
+Dockerfile           self-contained image: runtime + converter + e2e
 ```
 
 As a library:
@@ -47,6 +50,32 @@ from cajpdf import cajlib
 from cajpdf.convert import Options, convert_file
 
 convert_file("in.caj", "out.pdf", Options(mode="text"))
+```
+
+## Docker & CI
+
+The CNKI runtime is vendored (`vendor/cajviewer-1.0-1.el7.noarch.rpm`) so a
+clone is self-contained — no manual download. The `Dockerfile` unpacks it with
+`rpm2cpio | cpio` into `/opt/cajviewer` (exactly where `cajlib` auto-discovers
+it) and sets `CAJREADER_LIB` / `CAJVIEWER_DIR`:
+
+```sh
+docker build -t caj2pdf .
+docker run --rm -v "$PWD:/work" -w /work caj2pdf doc.caj -o doc.pdf
+docker run --rm --entrypoint python3 caj2pdf /app/tests/e2e_test.py   # e2e
+```
+
+`.github/workflows/docker-publish.yml` runs on push to `main`, tags `v*`, and
+PRs: `test` converts `tests/fixtures/中国金融体制改革阶段研究_李卉.caj` in all
+three modes on the runner and re-checks each PDF from scratch (xref-offset
+object parsing, PNG-predictor decode, ToUnicode text extraction, raster ink
+count); `docker-e2e` rebuilds the image and re-runs the same test inside it;
+`publish` then pushes to `ghcr.io/<owner>/caj` (never from a PR). Run the e2e
+locally the same way:
+
+```sh
+python3 tests/e2e_test.py \
+  --lib /path/to/libreaderex_x64.so --resdir /path/to/cajviewer/usr/bin
 ```
 
 ## What had to be reverse-engineered
