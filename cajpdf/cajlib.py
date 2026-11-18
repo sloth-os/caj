@@ -34,6 +34,20 @@ LOGPAGE_FIELDS = 11
 # unknown name is silently ignored and leaves the render inkless.
 DEFAULT_BASE_FONT = "WenQuanYi Micro Hei"
 
+# The resource base resolved by the most recent successful load(). CAJFILE_Init
+# and CAJFILE_SetBaseFont are process-global (the first Init/SetBaseFont latches
+# for the whole process), so recording the base the library was actually
+# initialised with -- rather than re-deriving it later via a fresh argument-less
+# find_library() search -- keeps font resolution consistent with the loaded
+# runtime. Downstream code (cajpdf.convert.FontManager) prefers this over its
+# own search so an explicit --resdir is honoured everywhere.
+_RESOLVED_BASE = None
+
+
+def resolved_base():
+    """The resource base the library was last loaded from, or None."""
+    return _RESOLVED_BASE
+
 
 class CAJError(RuntimeError):
     pass
@@ -344,6 +358,8 @@ def load(lib_path=None, res_base=None, base_font=None, debug_log=None,
     if base_font:
         # Void return -- the only way to tell it worked is to render and count ink.
         lib.CAJFILE_SetBaseFont(base_font.encode("utf-8", "surrogateescape"))
+    global _RESOLVED_BASE
+    _RESOLVED_BASE = base
     return lib, base
 
 

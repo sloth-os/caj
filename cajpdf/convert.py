@@ -157,11 +157,18 @@ class FontManager:
     # -- construction -----------------------------------------------------
     @staticmethod
     def _default_font_dir():
-        """The cajfonts directory next to the resource base we loaded from."""
-        try:
-            _lib, base = cajlib.find_library()
-        except cajlib.CAJError:
-            return None
+        """The cajfonts directory next to the resource base we loaded from.
+
+        Prefer the base the library was actually initialised with (recorded by
+        cajlib.load) so an explicit --resdir/--lib is honoured; only fall back to
+        a fresh argument-less find_library() search if nothing was loaded yet.
+        """
+        base = cajlib.resolved_base()
+        if not base:
+            try:
+                _lib, base = cajlib.find_library()
+            except cajlib.CAJError:
+                return None
         cand = os.path.join(base, "Resource", "cajfonts")
         return cand if os.path.isdir(cand) else None
 
